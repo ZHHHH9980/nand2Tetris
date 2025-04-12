@@ -11,15 +11,15 @@ function _handleArthmeticOperation(operation) {
   if (operation === "add") {
     return [
       "// handle add",
-      "@0",
+      "@SP",
       "M=M-1",
       "A=M",
       "D=M",
-      "@0",
+      "@SP",
       "M=M-1",
       "A=M",
       "M=D+M",
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   }
@@ -27,15 +27,15 @@ function _handleArthmeticOperation(operation) {
   // sub
   return [
     "// handle sub",
-    "@0",
+    "@SP",
     "M=M-1",
     "A=M",
     "D=M",
-    "@0",
+    "@SP",
     "M=M-1",
     "A=M",
     "M=M-D",
-    "@0",
+    "@SP",
     "M=M+1",
   ];
 }
@@ -68,17 +68,17 @@ const _handleLogicCommand = (operation) => {
 
     return [
       `// handle ${operation}`,
-      "@0",
+      "@SP",
       "AM=M-1",
       "D=M",
-      "@0",
+      "@SP",
       "AM=M-1",
       "D=M-D",
       "// if true",
       `@${uppercaseOperation}_TRUE_${_logicOperationAndCountMap[operation].count}`,
       `D;${_logicOperationAndCountMap[operation].command}`,
       "// else false",
-      "@0",
+      "@SP",
       "A=M",
       "M=0",
       `@${uppercaseOperation}_END_${_logicOperationAndCountMap[operation].count}`,
@@ -86,25 +86,25 @@ const _handleLogicCommand = (operation) => {
       `(${uppercaseOperation}_TRUE_${_logicOperationAndCountMap[operation].count})`,
       "@1",
       "D=-A",
-      "@0",
+      "@SP",
       "A=M",
       "M=D",
       "// SP++",
       `(${uppercaseOperation}_END_${_logicOperationAndCountMap[operation].count})`,
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   } else if (operation === "and" || operation === "or") {
     return [
       `// handle ${operation}`,
-      "@0",
+      "@SP",
       "AM=M-1",
       "D=M",
-      "@0",
+      "@SP",
       "AM=M-1",
       `M=${_logicOperationMap[operation]}`,
       "// SP++",
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   }
@@ -112,12 +112,12 @@ const _handleLogicCommand = (operation) => {
   // handle neg or not
   return [
     `// handle ${operation}`,
-    "@0",
+    "@SP",
     "AM=M-1",
     operation === "neg" ? "D=-M" : "D=!M",
     "M=D",
     "// SP++",
-    "@0",
+    "@SP",
     "M=M+1",
   ];
 };
@@ -132,14 +132,14 @@ const normalSegmentOffsetMap = {
 // push pointer  0/1  -> *SP = THIS/THAT, SP++
 // @offset
 // D = M (D = THIS/THAT)
-// @0
+// @SP
 // A = M (A = RAM[0])
 // M = D (*SP = D)
-// @0
+// @SP
 // M = M + 1 (SP++)
 
 // pop  pointer  0/1  -> SP--, THIS/THAT = *SP
-// @0
+// @SP
 // AM = M - 1 (SP--)
 // D = M (D = *SP)
 // @offset
@@ -155,11 +155,11 @@ function _handlePointerOperation(operation, index) {
       `// handle push pointer ${index}`,
       `@${offset}`,
       "D=M",
-      "@0",
+      "@SP",
       "A=M",
       "M=D",
       "// SP++",
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   }
@@ -167,7 +167,7 @@ function _handlePointerOperation(operation, index) {
   return [
     `// handle pop pointer ${index}`,
     "// SP--",
-    "@0",
+    "@SP",
     "AM=M-1",
     "D=M",
     `@${offset}`,
@@ -181,11 +181,11 @@ function _handleTempSegment(operation, index) {
       `// handle push temp ${index}`,
       `@${5 + index}`,
       "D=M",
-      "@0",
+      "@SP",
       "A=M",
       "M=D",
       "// SP++",
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   }
@@ -193,7 +193,7 @@ function _handleTempSegment(operation, index) {
   return [
     `// handle pop temp ${index}`,
     "// SP--",
-    "@0",
+    "@SP",
     "AM=M-1",
     "D=M",
     `@${5 + index}`,
@@ -209,11 +209,11 @@ function _handleConstantSegment(operation, index) {
     `@${index}`,
     "D=A",
     "// *SP=i",
-    "@0",
+    "@SP",
     "A=M",
     "M=D",
     "// SP++",
-    "@0",
+    "@SP",
     "M=M+1",
   ];
 }
@@ -239,12 +239,12 @@ function _handleNormalSegment(operation, segment, index) {
       "D=M",
 
       "// 2. *SP = *addr",
-      "@0",
+      "@SP",
       "A=M",
       "M=D",
 
       "// 3. SP++",
-      "@0",
+      "@SP",
       "M=M+1",
     ];
   }
@@ -264,11 +264,11 @@ function _handleNormalSegment(operation, segment, index) {
     "M=D",
 
     "// 3. SP--",
-    "@0",
+    "@SP",
     "M=M-1",
 
     "// 4. *addr = *SP",
-    "@0",
+    "@SP",
     "A=M",
     "D=M",
     "@R13",
@@ -277,39 +277,64 @@ function _handleNormalSegment(operation, segment, index) {
   ];
 }
 
-function _convertVMCode2ASMCode(str) {
-  if (_isStackOperation(str)) {
-    const [operation, segment, i] = str.split(" ");
-    const index = Number(i);
-
-    if (segment in normalSegmentOffsetMap) {
-      return _handleNormalSegment(operation, segment, index);
-    } else if (segment === "constant") {
-      return _handleConstantSegment(operation, index);
-    } else if (segment === "temp") {
-      return _handleTempSegment(operation, index);
-    } else if (segment === "pointer") {
-      return _handlePointerOperation(operation, index);
-    }
+function _handleStaticSegment(operation, index, fileName) {
+  if (operation === "push") {
+    return [
+      `// handle static push ${index}`,
+      `@${fileName}.${index}`,
+      "D=M",
+      "@SP",
+      "A=M",
+      "M=D",
+      "// SP++",
+      "@SP",
+      "M=M+1",
+    ];
   }
 
-  if (str === "add" || str === "sub") {
-    return _handleArthmeticOperation(str);
-  }
-
-  return _handleLogicCommand(str);
+  return [
+    `// handle static pop ${index}`,
+    "@SP",
+    "AM=M-1",
+    "D=M",
+    `@${fileName}.${index}`,
+    "M=D",
+  ];
 }
 
-function parser(dataStr) {
-  console.log("dataStr", dataStr);
+function _convertVMCode2ASMCode(fileName) {
+  return function (str) {
+    if (_isStackOperation(str)) {
+      const [operation, segment, i] = str.split(" ");
+      const index = Number(i);
 
+      if (segment in normalSegmentOffsetMap) {
+        return _handleNormalSegment(operation, segment, index);
+      } else if (segment === "constant") {
+        return _handleConstantSegment(operation, index);
+      } else if (segment === "temp") {
+        return _handleTempSegment(operation, index);
+      } else if (segment === "pointer") {
+        return _handlePointerOperation(operation, index);
+      } else if (segment === "static") {
+        return _handleStaticSegment(operation, index, fileName);
+      }
+    }
+
+    if (str === "add" || str === "sub") {
+      return _handleArthmeticOperation(str);
+    }
+
+    return _handleLogicCommand(str);
+  };
+}
+
+function parser(dataStr, fileName) {
   const validLines = dataStr
     .split("\n")
     .filter(_invalidLine)
-    .map(_convertVMCode2ASMCode)
+    .map(_convertVMCode2ASMCode(fileName))
     .map((commandArr) => commandArr.join("\n"));
-
-  console.log("validLines", validLines);
 
   return validLines.join("\n");
 }

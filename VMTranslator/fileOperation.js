@@ -12,13 +12,14 @@ function readFileFromTerminal() {
 
     // 获取文件路径
     const filePath = args[0];
+    const fileName = path.basename(filePath).replace(/\.vm$/, ""); // 获取文件名，去掉扩展名
 
     // 读取文件内容
     fs.readFile(filePath, "utf8", (err, data) => {
       if (err) {
         reject(`文件读取失败: ${err.message}`);
       } else {
-        resolve({ filePath, data });
+        resolve({ filePath, data, fileName });
       }
     });
   });
